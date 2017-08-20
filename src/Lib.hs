@@ -1,145 +1,92 @@
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
+
 module Lib where
 
-import Safe
+import Control.Applicative
+import Data.Map as Map
+import Data.Maybe
+import Data.List.Split
+import Data.List
 
-data Token = X | O deriving (Show, Eq) -- Haskell will write instances for you, so you don't have to
 
-type Cell = Maybe Token
+data Token = X | O deriving (Show, Eq)
 
-data Board = Board Cell Cell Cell Cell Cell Cell Cell Cell Cell
 
-data Exception = CellTaken | InvalidCell deriving Show
+data Cell
+    = C1 | C2 | C3
+    | C4 | C5 | C6
+    | C7 | C8 | C9
+    deriving (Eq, Ord, Enum, Bounded)
 
-emptyBoard :: Board
-emptyBoard = Board Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+
+type Board = Map Cell Token
+
 
 initTTT :: IO ()
 initTTT = do
-    putStrLn $ drawBoard emptyBoard
-    ticTacToe emptyBoard X
+    putStrLn $ drawBoard mempty
+    ticTacToe mempty X
 
-negateToken :: Token -> Token
-negateToken X = O
-negateToken _ = X
+
+parseCell :: String -> Maybe Cell
+parseCell = \case
+   "1" -> Just C1; "2" -> Just C2; "3" -> Just C3
+   "4" -> Just C4; "5" -> Just C5; "6" -> Just C6
+   "7" -> Just C7; "8" -> Just C8; "9" -> Just C9
+   _ -> Nothing
+
 
 ticTacToe :: Board -> Token -> IO ()
 ticTacToe b p = do
     putStrLn $ "You are " ++ show p ++ ". Please input cell bitch."
-    input <- readMay <$> getLine
-    case input of
-        Just x -> either
-            (\e -> do
-                print e
-                putStrLn (drawBoard b)
-                ticTacToe b p
-            )
-            (\b' -> case checkBoard b' of
-                    Just t -> do
-                        putStrLn $ drawBoard b'
-                        putStrLn $ show t ++ " wins bitch."
-                    _ -> do
-                        putStrLn $ drawBoard b'
-                        ticTacToe b' $ negateToken p
-            )
-            (occupyWallStreet b p x)
-        _ -> do
-            putStrLn "Must be a number between 1 and 9 bitch."
-            putStrLn $ drawBoard b
-            ticTacToe b p
+    cell <- parseCell <$> getLine
+    maybe (error "must be a number between 0 and 9 bitch") tick cell
+  where
+    printBoard = putStrLn . drawBoard
 
-allThree :: Cell -> Cell -> Cell -> Bool
-allThree (Just a) (Just b) (Just c) = (a == b) && (b == c)
-allThree _ _ _ = False
+    tick x = case Map.lookup x b of
+        Just _ -> error "Cell Taken"
+        _ -> let b' = Map.insert x p b
+             in maybe (next b') (winner b') $ checkBoard b'
 
--- We can talk in comments
--- Ok
--- I see whats wrong
--- that `a`
--- it's a Cell (aka Maybe Token)
--- yes
--- so you are putting it in a maybe
--- by using Just
--- that gives a Maybe (Maybe Token)
--- So just a, not Just a
--- yes
--- Let's try
--- By the way, what i'm doing here is this:
--- ^v then selecting the area I want gone, then hitting x
--- A trick
--- If you're in normal mode and yuo want to start a new line, hit o
--- vrbvbrb
--- kk
--- You have a very square screen
--- back
--- ok
--- Did you just maximize?
--- Yeah
--- so I saved the file
--- and got an instant error below
--- Eq
--- Yes,
--- WAit
--- Is that just building any time we save?
--- yes
--- You sexy son of a bitch
--- :)
--- so...
+    next b' = do
+        printBoard b'
+        ticTacToe b' (case p of X -> O; O -> X)
+
+    winner b' t = do
+        printBoard b'
+        putStrLn $ show t ++ " wins bitch."
+
+    error msg = do
+        putStrLn msg
+        printBoard b
+        ticTacToe b p
+
+
 checkBoard :: Board -> Maybe Token
-checkBoard (Board a b c _ _ _ _ _ _) | allThree a b c = a
-checkBoard (Board _ _ _ a b c _ _ _) | allThree a b c = a
-checkBoard (Board _ _ _ _ _ _ a b c) | allThree a b c = a
-checkBoard (Board a _ _ b _ _ c _ _) | allThree a b c = a
-checkBoard (Board _ a _ _ b _ _ c _) | allThree a b c = a
-checkBoard (Board _ _ a _ _ b _ _ c) | allThree a b c = a
-checkBoard (Board a _ _ _ b _ _ _ c) | allThree a b c = a
-checkBoard (Board _ _ a _ b _ c _ _) | allThree a b c = a
-checkBoard _ = Nothing
+checkBoard b =
+        check C1 C2 C3
+    <|> check C4 C5 C6
+    <|> check C7 C8 C9
+    <|> check C1 C4 C7
+    <|> check C2 C5 C8
+    <|> check C3 C6 C9
+    <|> check C1 C5 C9
+    <|> check C3 C5 C7
+  where
+    check x y z = do
+        x' <- Map.lookup x b
+        y' <- Map.lookup y b
+        z' <- Map.lookup z b
+        if x' == y' && x' == z'
+        then Just x' else Nothing
 
-occupyWallStreet :: Board -> Token -> Int -> Either Exception Board
-occupyWallStreet (Board (Just _) _ _ _ _ _ _ _ _) _ 1 = Left CellTaken
-occupyWallStreet (Board _ c2 c3 c4 c5 c6 c7 c8 c9) p 1 =
-    Right $ Board (Just p) c2 c3 c4 c5 c6 c7 c8 c9
-
-occupyWallStreet (Board _ (Just _) _ _ _ _ _ _ _) _ 2 = Left CellTaken
-occupyWallStreet (Board c1 _ c3 c4 c5 c6 c7 c8 c9) p 2 =
-    Right $ Board c1 (Just p) c3 c4 c5 c6 c7 c8 c9
-
-occupyWallStreet (Board _ _ (Just _) _ _ _ _ _ _) _ 3 = Left CellTaken
-occupyWallStreet (Board c1 c2 _ c4 c5 c6 c7 c8 c9) p 3 =
-    Right $ Board c1 c2 (Just p) c4 c5 c6 c7 c8 c9
-
-occupyWallStreet (Board _ _ _ (Just _) _ _ _ _ _) _ 4 = Left CellTaken
-occupyWallStreet (Board c1 c2 c3 _ c5 c6 c7 c8 c9) p 4 =
-    Right $ Board c1 c2 c3 (Just p) c5 c6 c7 c8 c9
-
-occupyWallStreet (Board _ _ _ _ (Just _) _ _ _ _) _ 5 = Left CellTaken
-occupyWallStreet (Board c1 c2 c3 c4 _ c6 c7 c8 c9) p 5 =
-    Right $ Board c1 c2 c3 c4 (Just p) c6 c7 c8 c9
-
-occupyWallStreet (Board _ _ _ _ _ (Just _) _ _ _) _ 6 = Left CellTaken
-occupyWallStreet (Board c1 c2 c3 c4 c5 _ c7 c8 c9) p 6 =
-    Right $ Board c1 c2 c3 c4 c5 (Just p) c7 c8 c9
-
-occupyWallStreet (Board _ _ _ _ _ _ (Just _) _ _) _ 7 = Left CellTaken
-occupyWallStreet (Board c1 c2 c3 c4 c5 c6 _ c8 c9) p 7 =
-    Right $ Board c1 c2 c3 c4 c5 c6 (Just p) c8 c9
-
-occupyWallStreet (Board _ _ _ _ _ _ _ (Just _) _) _ 8 = Left CellTaken
-occupyWallStreet (Board c1 c2 c3 c4 c5 c6 c7 _ c9) p 8 =
-    Right $ Board c1 c2 c3 c4 c5 c6 c7 (Just p) c9
-
-occupyWallStreet (Board _ _ _ _ _ _ _ _ (Just _)) _ 9 = Left CellTaken
-occupyWallStreet (Board c1 c2 c3 c4 c5 c6 c7 c8 _) p 9 =
-    Right $ Board c1 c2 c3 c4 c5 c6 c7 c8 (Just p)
-
-occupyWallStreet _ _ _ = Left InvalidCell
 
 drawBoard :: Board -> String
-drawBoard (Board c1 c2 c3 c4 c5 c6 c7 c8 c9) =
-    drawRow c1 c2 c3 ++ "-+-+-\n" ++ drawRow c4 c5 c6 ++ "-+-+-\n" ++ drawRow c7 c8 c9
-
-drawRow :: Cell -> Cell -> Cell -> String
-drawRow c1 c2 c3 = drawCell c1 ++ "|" ++ drawCell c2 ++ "|" ++ drawCell c3 ++ "\n"
-
-drawCell :: Cell -> String
-drawCell = maybe " " show
+drawBoard b = intercalate "-+-+-\n"
+    . fmap ((++ "\n") . intercalate "|") . chunksOf 3
+    $ maybe " " show . flip Map.lookup b <$> [C1 ..]
