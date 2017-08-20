@@ -2,7 +2,7 @@ module Lib where
 
 import Safe
 
-data Token = X | O deriving Show
+data Token = X | O deriving (Show, Eq) -- Haskell will write instances for you, so you don't have to
 
 type Cell = Maybe Token
 
@@ -34,7 +34,9 @@ ticTacToe b p = do
                 ticTacToe b p
             )
             (\b' -> case checkBoard b' of
-                    Just t -> putStrLn $ show t ++ " wins bitch."
+                    Just t -> do
+                        putStrLn $ drawBoard b'
+                        putStrLn $ show t ++ " wins bitch."
                     _ -> do
                         putStrLn $ drawBoard b'
                         ticTacToe b' $ negateToken p
@@ -49,15 +51,48 @@ allThree :: Cell -> Cell -> Cell -> Bool
 allThree (Just a) (Just b) (Just c) = (a == b) && (b == c)
 allThree _ _ _ = False
 
+-- We can talk in comments
+-- Ok
+-- I see whats wrong
+-- that `a`
+-- it's a Cell (aka Maybe Token)
+-- yes
+-- so you are putting it in a maybe
+-- by using Just
+-- that gives a Maybe (Maybe Token)
+-- So just a, not Just a
+-- yes
+-- Let's try
+-- By the way, what i'm doing here is this:
+-- ^v then selecting the area I want gone, then hitting x
+-- A trick
+-- If you're in normal mode and yuo want to start a new line, hit o
+-- vrbvbrb
+-- kk
+-- You have a very square screen
+-- back
+-- ok
+-- Did you just maximize?
+-- Yeah
+-- so I saved the file
+-- and got an instant error below
+-- Eq
+-- Yes,
+-- WAit
+-- Is that just building any time we save?
+-- yes
+-- You sexy son of a bitch
+-- :)
+-- so...
 checkBoard :: Board -> Maybe Token
-checkBoard (Board a b c _ _ _ _ _ _) | allThree a b c = Just a
-checkBoard (Board _ _ _ a b c _ _ _) | allThree a b c = Just a
-checkBoard (Board _ _ _ _ _ _ a b c) | allThree a b c = Just a
-checkBoard (Board a _ _ b _ _ c _ _) | allThree a b c = Just a
-checkBoard (Board _ a _ _ b _ _ c _) | allThree a b c = Just a
-checkBoard (Board _ _ a _ _ b _ _ c) | allThree a b c = Just a
-checkBoard (Board a _ _ _ b _ _ _ c) | allThree a b c = Just a
-checkBoard (Board _ _ a _ b _ c _ _) | allThree a b c = Just a
+checkBoard (Board a b c _ _ _ _ _ _) | allThree a b c = a
+checkBoard (Board _ _ _ a b c _ _ _) | allThree a b c = a
+checkBoard (Board _ _ _ _ _ _ a b c) | allThree a b c = a
+checkBoard (Board a _ _ b _ _ c _ _) | allThree a b c = a
+checkBoard (Board _ a _ _ b _ _ c _) | allThree a b c = a
+checkBoard (Board _ _ a _ _ b _ _ c) | allThree a b c = a
+checkBoard (Board a _ _ _ b _ _ _ c) | allThree a b c = a
+checkBoard (Board _ _ a _ b _ c _ _) | allThree a b c = a
 checkBoard _ = Nothing
 
 occupyWallStreet :: Board -> Token -> Int -> Either Exception Board
