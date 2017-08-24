@@ -2,6 +2,8 @@
 
 module Lib where
 
+import Safe (headMay)
+
 data Token = X | O deriving (Show, Eq)
 
 type Cell = Maybe Token
@@ -17,7 +19,7 @@ emptyBoard = Board Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothi
 
 initTTT :: IO ()
 initTTT = do
-    putStrLn $ drawBoard emptyBoard
+    putStrLn $ drawBoard $ Just emptyBoard
     ticTacToe [emptyBoard] X
 
 negateToken :: Token -> Token
@@ -51,29 +53,29 @@ ticTacToe b p = do
             case length b of
                 1 -> do
                     putStrLn "Can't undo on first move"
-                    putStrLn $ drawBoard $ head b
+                    putStrLn $ drawBoard $ headMay b
                     ticTacToe b p
                 _ -> do
-                    putStrLn $ drawBoard $ head rest
+                    putStrLn $ drawBoard $ headMay rest
                     ticTacToe (tail b) $ negateToken p
         Just (Move x) -> either
             (\e -> do
                 print e
-                putStrLn $ drawBoard $ first
+                putStrLn $ drawBoard $ Just first
                 ticTacToe b p
             )
             (\b' -> case checkBoard b' of
                     Just t -> do
-                        putStrLn $ drawBoard b'
+                        putStrLn $ drawBoard $ Just b'
                         putStrLn $ show t ++ " wins bitch."
                     _ -> do
-                        putStrLn $ drawBoard b'
+                        putStrLn $ drawBoard $ Just b'
                         ticTacToe (b' : b) $ negateToken p
             )
             (occupyWallStreet first p x)
         _ -> do
             putStrLn "Must be a number between 1 and 9 bitch."
-            putStrLn $ drawBoard first
+            putStrLn $ drawBoard $ Just first
             ticTacToe b p
 
 allThree :: Cell -> Cell -> Cell -> Bool
@@ -130,9 +132,10 @@ occupyWallStreet (Board c1 c2 c3 c4 c5 c6 c7 c8 _) p 9 =
 
 occupyWallStreet _ _ _ = Left InvalidCell
 
-drawBoard :: Board -> String
-drawBoard (Board c1 c2 c3 c4 c5 c6 c7 c8 c9) =
+drawBoard :: Maybe Board -> String
+drawBoard (Just (Board c1 c2 c3 c4 c5 c6 c7 c8 c9)) =
     drawRow c1 c2 c3 ++ "-+-+-\n" ++ drawRow c4 c5 c6 ++ "-+-+-\n" ++ drawRow c7 c8 c9
+drawBoard _ = ""
 
 drawRow :: Cell -> Cell -> Cell -> String
 drawRow c1 c2 c3 = drawCell c1 ++ "|" ++ drawCell c2 ++ "|" ++ drawCell c3 ++ "\n"
