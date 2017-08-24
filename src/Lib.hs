@@ -1,14 +1,11 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 
 module Lib where
 
 import Control.Applicative
 import Data.Map as Map
-import Data.Maybe
 import Data.List.Split
 import Data.List
 
@@ -26,45 +23,58 @@ data Cell
 type Board = Map Cell Token
 
 
+data Input = Move Cell | Undo
+
+
 initTTT :: IO ()
 initTTT = do
     putStrLn $ drawBoard mempty
-    ticTacToe mempty X
+    ticTacToe [mempty] X
 
 
-parseCell :: String -> Maybe Cell
-parseCell = \case
-   "1" -> Just C1; "2" -> Just C2; "3" -> Just C3
-   "4" -> Just C4; "5" -> Just C5; "6" -> Just C6
-   "7" -> Just C7; "8" -> Just C8; "9" -> Just C9
+parseInput :: String -> Maybe Input
+parseInput = \case
+   "1" -> Just $ Move C1; "2" -> Just $ Move C2; "3" -> Just $ Move C3
+   "4" -> Just $ Move C4; "5" -> Just $ Move C5; "6" -> Just $ Move C6
+   "7" -> Just $ Move C7; "8" -> Just $ Move C8; "9" -> Just $ Move C9
+   "u" -> Just Undo; "undo" -> Just Undo
    _ -> Nothing
 
 
-ticTacToe :: Board -> Token -> IO ()
-ticTacToe b p = do
+ticTacToe :: [Board] -> Token -> IO ()
+ticTacToe bs p = do
     putStrLn $ "You are " ++ show p ++ ". Please input cell bitch."
-    cell <- parseCell <$> getLine
-    maybe (error "must be a number between 0 and 9 bitch") tick cell
+    input <- parseInput <$> getLine
+    maybe (error' "must be a number between 0 and 9 bitch") tick input
   where
     printBoard = putStrLn . drawBoard
 
-    tick x = case Map.lookup x b of
-        Just _ -> error "Cell Taken"
-        _ -> let b' = Map.insert x p b
-             in maybe (next b') (winner b') $ checkBoard b'
+    tick = \case
+        Move x -> case Map.lookup x (head bs) of
+            Just _ -> error' "Cell Taken"
+            _ -> let b' = Map.insert x p $ head bs
+                in maybe (next b') (winner b') $ checkBoard b'
+        Undo | length bs == 1 -> do
+            putStrLn "Cannot undo on empty board"
+            ticTacToe bs p
+        _ -> do
+            printBoard $ head $ tail bs
+            ticTacToe (tail bs) negated
 
     next b' = do
         printBoard b'
-        ticTacToe b' (case p of X -> O; O -> X)
+        ticTacToe (b':bs) negated
 
     winner b' t = do
         printBoard b'
         putStrLn $ show t ++ " wins bitch."
 
-    error msg = do
+    error' msg = do
         putStrLn msg
-        printBoard b
-        ticTacToe b p
+        printBoard $ head bs
+        ticTacToe bs p
+
+    negated = case p of X -> O; O -> X
 
 
 checkBoard :: Board -> Maybe Token
