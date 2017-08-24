@@ -2,8 +2,6 @@
 
 module Lib where
 
-import Safe
-
 data Token = X | O deriving (Show, Eq)
 
 type Cell = Maybe Token
