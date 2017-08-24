@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Lib where
 
 import Safe
@@ -10,27 +12,56 @@ data Board = Board Cell Cell Cell Cell Cell Cell Cell Cell Cell
 
 data Exception = CellTaken | InvalidCell deriving Show
 
+data Input = Move Int | Undo
+
 emptyBoard :: Board
 emptyBoard = Board Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
 
 initTTT :: IO ()
 initTTT = do
     putStrLn $ drawBoard emptyBoard
-    ticTacToe emptyBoard X
+    ticTacToe [emptyBoard] X
 
 negateToken :: Token -> Token
 negateToken X = O
 negateToken _ = X
 
-ticTacToe :: Board -> Token -> IO ()
+parseInput :: String -> Maybe Input
+parseInput = \case
+    "0" -> Just $ Move 0
+    "1" -> Just $ Move 1
+    "2" -> Just $ Move 2
+    "3" -> Just $ Move 3
+    "4" -> Just $ Move 4
+    "5" -> Just $ Move 5
+    "6" -> Just $ Move 6
+    "7" -> Just $ Move 7
+    "8" -> Just $ Move 8
+    "9" -> Just $ Move 9
+    "u" -> Just $ Undo
+    "undo" -> Just $ Undo
+    _ -> Nothing
+
+ticTacToe :: [Board] -> Token -> IO ()
 ticTacToe b p = do
     putStrLn $ "You are " ++ show p ++ ". Please input cell bitch."
-    input <- readMay <$> getLine
+    input <- parseInput <$> getLine
+    let first:rest = b
+
     case input of
-        Just x -> either
+        Just Undo -> do
+            case length b of
+                1 -> do
+                    putStrLn "Can't undo on first move"
+                    putStrLn $ drawBoard $ head b
+                    ticTacToe b p
+                _ -> do
+                    putStrLn $ drawBoard $ head rest
+                    ticTacToe (tail b) $ negateToken p
+        Just (Move x) -> either
             (\e -> do
                 print e
-                putStrLn (drawBoard b)
+                putStrLn $ drawBoard $ first
                 ticTacToe b p
             )
             (\b' -> case checkBoard b' of
@@ -39,12 +70,12 @@ ticTacToe b p = do
                         putStrLn $ show t ++ " wins bitch."
                     _ -> do
                         putStrLn $ drawBoard b'
-                        ticTacToe b' $ negateToken p
+                        ticTacToe (b' : b) $ negateToken p
             )
-            (occupyWallStreet b p x)
+            (occupyWallStreet first p x)
         _ -> do
             putStrLn "Must be a number between 1 and 9 bitch."
-            putStrLn $ drawBoard b
+            putStrLn $ drawBoard first
             ticTacToe b p
 
 allThree :: Cell -> Cell -> Cell -> Bool
